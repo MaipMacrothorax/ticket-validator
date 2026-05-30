@@ -3,14 +3,21 @@ import { useState, useEffect, useRef } from "react";
 
 const MODULES = ["Expense", "Travel", "Invoice", "Request"];
 const MAX_LENGTH = 2000;
-const MAX_SCREENSHOTS = 5;
+
+const QUICK_CHECKS = [
+  { id: "tested_sandbox", label: "Already tested in sandbox" },
+  { id: "reproducible", label: "Issue reproducible consistently" },
+  { id: "users_notified", label: "Users have been notified" },
+  { id: "after_config_change", label: "Occurred after a configuration change" },
+];
 
 export default function Home() {
   const [concurModule, setConcurModule] = useState("");
-  const [currentBehavior, setCurrentBehavior] = useState("");
-  const [expectedBehavior, setExpectedBehavior] = useState("");
-  const [context, setContext] = useState("");
-  const [screenshots, setScreenshots] = useState([]);
+  const [environment, setEnvironment] = useState("");
+  const [checks, setChecks] = useState({});
+  const [urgency, setUrgency] = useState("");
+  const [issue, setIssue] = useState("");
+  const [expectedResult, setExpectedResult] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -18,7 +25,6 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [animatedScore, setAnimatedScore] = useState(0);
   const resultRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (result) {
@@ -29,34 +35,22 @@ export default function Home() {
   }, [result]);
 
   useEffect(() => {
-    if (result && resultRef.current) {
-      if (window.innerWidth <= 700) {
-        resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+    if (result && resultRef.current && window.innerWidth <= 700) {
+      resultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [result]);
 
-  const handleScreenshots = (e) => {
-    const files = Array.from(e.target.files);
-    const valid = files.filter(f => f.type.startsWith("image/")).slice(0, MAX_SCREENSHOTS - screenshots.length);
-    const newScreenshots = valid.map(f => ({
-      file: f,
-      name: f.name,
-      url: URL.createObjectURL(f),
-    }));
-    setScreenshots(prev => [...prev, ...newScreenshots].slice(0, MAX_SCREENSHOTS));
-  };
-
-  const removeScreenshot = (idx) => {
-    setScreenshots(prev => prev.filter((_, i) => i !== idx));
+  const toggleCheck = (id) => {
+    setChecks(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const validate = () => {
     const errors = {};
     if (!concurModule) errors.concurModule = true;
-    if (!currentBehavior.trim()) errors.currentBehavior = true;
-    if (!expectedBehavior.trim()) errors.expectedBehavior = true;
-    if (!context.trim()) errors.context = true;
+    if (!environment) errors.environment = true;
+    if (!urgency) errors.urgency = true;
+    if (!issue.trim()) errors.issue = true;
+    if (!expectedResult.trim()) errors.expectedResult = true;
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -69,10 +63,19 @@ export default function Home() {
     setResult(null);
     setLoading(true);
 
+    const checkedItems = QUICK_CHECKS.filter(c => checks[c.id]).map(c => c.label);
+
     fetch("/api/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ concurModule, currentBehavior, expectedBehavior, context }),
+      body: JSON.stringify({
+        concurModule,
+        environment,
+        urgency,
+        checks: checkedItems,
+        issue,
+        expectedResult,
+      }),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -87,43 +90,27 @@ export default function Home() {
   };
 
   const handleCopy = () => {
-    const screenshotLine = screenshots.length > 0
-      ? `\nAttached screenshots (${screenshots.length}):\n${screenshots.map((s, i) => `  ${i + 1}. ${s.name}`).join("\n")}`
-      : "";
-
+    const checkedItems = QUICK_CHECKS.filter(c => checks[c.id]).map(c => `  ✓ ${c.label}`);
     const output = `────────────────────────────────────
 SAP CONCUR SUPPORT TICKET
 ────────────────────────────────────
 Module: ${concurModule}
+Environment: ${environment}
+Urgency: ${urgency}
+${checkedItems.length > 0 ? `\nChecks:\n${checkedItems.join("\n")}\n` : ""}
+Issue:
+${issue}
 
-Current Behavior:
-${currentBehavior}
-
-Expected Behavior:
-${expectedBehavior}
-
-Context:
-${context}${screenshotLine}
+Expected Result:
+${expectedResult}
 ────────────────────────────────────`;
-
     navigator.clipboard.writeText(output);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const scoreColor = (score) => {
-    if (score >= 80) return "#00c896";
-    if (score >= 50) return "#f5a623";
-    return "#e84040";
-  };
-
-  const scoreLabel = (score) => {
-    if (score >= 80) return "Ready to submit";
-    if (score >= 50) return "Needs improvement";
-    return "Incomplete";
-  };
-
-  const charCount = (val) => `${val.length} / ${MAX_LENGTH}`;
+  const scoreColor = (s) => s >= 80 ? "#00c896" : s >= 50 ? "#f5a623" : "#e84040";
+  const scoreLabel = (s) => s >= 80 ? "Ready to submit" : s >= 50 ? "Needs improvement" : "Incomplete";
   const isOverLimit = (val) => val.length > MAX_LENGTH;
 
   return (
@@ -148,12 +135,7 @@ ${context}${screenshotLine}
           letter-spacing: -0.5px;
           color: #fff;
         }
-        .header-sub {
-          font-size: 11px;
-          color: #444466;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-        }
+        .header-sub { font-size: 11px; color: #444466; letter-spacing: 2px; text-transform: uppercase; }
         .sap-badge {
           margin-left: auto;
           font-size: 10px;
@@ -186,15 +168,9 @@ ${context}${screenshotLine}
 
         .field { display: flex; flex-direction: column; gap: 6px; }
         .field-header { display: flex; justify-content: space-between; align-items: baseline; }
-        .label {
-          font-size: 10px;
-          letter-spacing: 2.5px;
-          text-transform: uppercase;
-          color: #555580;
-          font-weight: 500;
-        }
+        .label { font-size: 10px; letter-spacing: 2.5px; text-transform: uppercase; color: #555580; font-weight: 500; }
         .label.error { color: #e84040; }
-        .char-count { font-size: 9px; color: #333355; letter-spacing: 0.5px; }
+        .char-count { font-size: 9px; color: #333355; }
         .char-count.over { color: #e84040; }
 
         .select-wrap { position: relative; }
@@ -226,27 +202,17 @@ ${context}${screenshotLine}
         .select:focus, .textarea:focus { border-color: #0070f3; }
         .select.error, .textarea.error { border-color: #e8404060; background: #e8404006; }
         .select option { background: #0f0f1a; }
-        .textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+        .textarea { resize: vertical; min-height: 100px; line-height: 1.6; }
         .textarea::placeholder { color: #2a2a40; }
-        .textarea.over { border-color: #e84040; }
 
-        /* Screenshot upload */
-        .upload-zone {
-          border: 1px dashed #1e1e30;
-          border-radius: 4px;
-          padding: 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          cursor: pointer;
-          transition: border-color 0.15s;
-        }
-        .upload-zone:hover { border-color: #333355; }
-        .upload-btn {
-          background: transparent;
+        /* Toggle */
+        .toggle-row { display: flex; gap: 8px; }
+        .toggle-btn {
+          flex: 1;
+          padding: 10px;
+          background: #0f0f1a;
           border: 1px solid #1e1e30;
           color: #555580;
-          padding: 10px 14px;
           font-family: 'DM Mono', monospace;
           font-size: 11px;
           letter-spacing: 1.5px;
@@ -256,53 +222,65 @@ ${context}${screenshotLine}
           transition: all 0.15s;
           text-align: center;
         }
-        .upload-btn:hover { border-color: #333355; color: #8888aa; }
-        .upload-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        .screenshots-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-          gap: 8px;
-        }
-        .screenshot-thumb {
-          position: relative;
-          aspect-ratio: 1;
-          border-radius: 3px;
-          overflow: hidden;
+        .toggle-btn.active-Sandbox { background: #0070f310; border-color: #0070f3; color: #0070f3; }
+        .toggle-btn.active-Production { background: #e8404010; border-color: #e84040; color: #e84040; }
+        .toggle-btn.error { border-color: #e8404060; }
+
+        /* Urgency */
+        .urgency-row { display: flex; gap: 8px; }
+        .urgency-btn {
+          flex: 1;
+          padding: 10px;
+          background: #0f0f1a;
           border: 1px solid #1e1e30;
-        }
-        .screenshot-thumb img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .screenshot-remove {
-          position: absolute;
-          top: 3px;
-          right: 3px;
-          width: 18px;
-          height: 18px;
-          background: #0a0a0f;
-          border: 1px solid #1e1e30;
-          border-radius: 50%;
-          color: #e84040;
-          font-size: 10px;
+          color: #555580;
+          font-family: 'DM Mono', monospace;
+          font-size: 11px;
+          letter-spacing: 1.5px;
+          text-transform: uppercase;
           cursor: pointer;
+          border-radius: 4px;
+          transition: all 0.15s;
+          text-align: center;
+        }
+        .urgency-btn.active-Low { background: #00c89610; border-color: #00c896; color: #00c896; }
+        .urgency-btn.active-Medium { background: #f5a62310; border-color: #f5a623; color: #f5a623; }
+        .urgency-btn.active-High { background: #e8404010; border-color: #e84040; color: #e84040; }
+        .urgency-btn.error { border-color: #e8404060; }
+
+        /* Checkboxes */
+        .checks-grid { display: flex; flex-direction: column; gap: 8px; }
+        .check-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          background: #0f0f1a;
+          border: 1px solid #1e1e30;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.15s;
+          user-select: none;
+        }
+        .check-item:hover { border-color: #333355; }
+        .check-item.checked { background: #0070f308; border-color: #0070f330; }
+        .check-box {
+          width: 14px;
+          height: 14px;
+          border: 1px solid #333355;
+          border-radius: 2px;
+          flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          line-height: 1;
-        }
-        .screenshot-name {
           font-size: 9px;
-          color: #333355;
-          margin-top: 3px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          text-align: center;
+          color: #0070f3;
+          background: transparent;
+          transition: all 0.15s;
         }
-        .upload-hint { font-size: 10px; color: #2a2a40; letter-spacing: 0.5px; }
+        .check-item.checked .check-box { background: #0070f320; border-color: #0070f3; }
+        .check-label { font-size: 11px; color: #666688; letter-spacing: 0.5px; }
+        .check-item.checked .check-label { color: #aaaacc; }
 
         .btn-validate {
           background: #0070f3;
@@ -399,32 +377,16 @@ ${context}${screenshotLine}
           border: 2px solid;
         }
         .score-info { flex: 1; min-width: 0; }
-        .score-label {
-          font-family: 'Syne', sans-serif;
-          font-size: 14px;
-          font-weight: 700;
-          margin-bottom: 4px;
-        }
+        .score-label { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
         .score-summary { font-size: 11px; color: #666688; line-height: 1.5; }
 
-        .score-bar-wrap {
-          padding: 14px 22px;
-          border-bottom: 1px solid #1e1e30;
-          background: #0a0a12;
-        }
+        .score-bar-wrap { padding: 14px 22px; border-bottom: 1px solid #1e1e30; background: #0a0a12; }
         .score-bar-bg { height: 3px; background: #1e1e30; border-radius: 2px; overflow: hidden; }
         .score-bar-fill { height: 100%; border-radius: 2px; transition: width 0.7s cubic-bezier(0.4,0,0.2,1); }
 
         .section { padding: 14px 22px; border-bottom: 1px solid #0f0f1a; }
         .section:last-child { border-bottom: none; }
-        .section-title {
-          font-size: 9px;
-          letter-spacing: 2.5px;
-          text-transform: uppercase;
-          color: #333355;
-          margin-bottom: 10px;
-          font-weight: 500;
-        }
+        .section-title { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: #333355; margin-bottom: 10px; font-weight: 500; }
         .issue-item, .suggestion-item {
           font-size: 12px;
           line-height: 1.6;
@@ -438,13 +400,7 @@ ${context}${screenshotLine}
         .issue-dot { color: #e84040; flex-shrink: 0; }
         .suggestion-dot { color: #0070f3; flex-shrink: 0; }
 
-        /* Formatted output block */
-        .output-block {
-          border: 1px solid #1e1e30;
-          border-radius: 6px;
-          overflow: hidden;
-          animation: fadeIn 0.3s ease;
-        }
+        .output-block { border: 1px solid #1e1e30; border-radius: 6px; overflow: hidden; animation: fadeIn 0.3s ease; }
         .output-header {
           padding: 12px 16px;
           border-bottom: 1px solid #1e1e30;
@@ -453,12 +409,7 @@ ${context}${screenshotLine}
           justify-content: space-between;
           background: #0a0a12;
         }
-        .output-title {
-          font-size: 9px;
-          letter-spacing: 2.5px;
-          text-transform: uppercase;
-          color: #333355;
-        }
+        .output-title { font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase; color: #333355; }
         .btn-copy {
           background: transparent;
           border: 1px solid #1e1e30;
@@ -484,22 +435,6 @@ ${context}${screenshotLine}
           max-height: 300px;
           overflow-y: auto;
         }
-        .output-screenshots {
-          padding: 12px 16px;
-          border-top: 1px solid #1e1e30;
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-        .output-thumb {
-          width: 48px;
-          height: 48px;
-          border-radius: 3px;
-          overflow: hidden;
-          border: 1px solid #1e1e30;
-          flex-shrink: 0;
-        }
-        .output-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
       `}</style>
 
       <div className="header">
@@ -509,12 +444,11 @@ ${context}${screenshotLine}
       </div>
 
       <div className="main">
-        {/* FORM */}
         <div className="form-col">
+
+          {/* Module */}
           <div className="field">
-            <div className="field-header">
-              <label className={`label ${fieldErrors.concurModule ? "error" : ""}`}>Module</label>
-            </div>
+            <label className={`label ${fieldErrors.concurModule ? "error" : ""}`}>Module</label>
             <div className="select-wrap">
               <select
                 className={`select ${fieldErrors.concurModule ? "error" : ""}`}
@@ -527,67 +461,83 @@ ${context}${screenshotLine}
             </div>
           </div>
 
-          {[
-            { key: "currentBehavior", val: currentBehavior, set: setCurrentBehavior, label: "Current Behavior", placeholder: "What is broken or not working as expected?" },
-            { key: "expectedBehavior", val: expectedBehavior, set: setExpectedBehavior, label: "Expected Behavior", placeholder: "What should happen? What is the goal?" },
-            { key: "context", val: context, set: setContext, label: "Context", placeholder: "What have you already tried? Prod or sandbox? Relevant config details?" },
-          ].map(({ key, val, set, label, placeholder }) => (
-            <div className="field" key={key}>
-              <div className="field-header">
-                <label className={`label ${fieldErrors[key] ? "error" : ""}`}>{label}</label>
-                {val.length > 0 && (
-                  <span className={`char-count ${isOverLimit(val) ? "over" : ""}`}>{charCount(val)}</span>
-                )}
-              </div>
-              <textarea
-                className={`textarea ${fieldErrors[key] ? "error" : ""} ${isOverLimit(val) ? "over" : ""}`}
-                placeholder={placeholder}
-                value={val}
-                rows={4}
-                onChange={e => { set(e.target.value); setFieldErrors(f => ({ ...f, [key]: false })); }}
-              />
+          {/* Environment */}
+          <div className="field">
+            <label className={`label ${fieldErrors.environment ? "error" : ""}`}>Environment</label>
+            <div className="toggle-row">
+              {["Sandbox", "Production"].map(env => (
+                <button
+                  key={env}
+                  className={`toggle-btn ${environment === env ? `active-${env}` : ""} ${fieldErrors.environment ? "error" : ""}`}
+                  onClick={() => { setEnvironment(env); setFieldErrors(f => ({ ...f, environment: false })); }}
+                >
+                  {env}
+                </button>
+              ))}
             </div>
-          ))}
+          </div>
 
-          {/* Screenshots */}
+          {/* Urgency */}
+          <div className="field">
+            <label className={`label ${fieldErrors.urgency ? "error" : ""}`}>Urgency</label>
+            <div className="urgency-row">
+              {["Low", "Medium", "High"].map(u => (
+                <button
+                  key={u}
+                  className={`urgency-btn ${urgency === u ? `active-${u}` : ""} ${fieldErrors.urgency ? "error" : ""}`}
+                  onClick={() => { setUrgency(u); setFieldErrors(f => ({ ...f, urgency: false })); }}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Checks */}
+          <div className="field">
+            <label className="label">Quick Checks</label>
+            <div className="checks-grid">
+              {QUICK_CHECKS.map(c => (
+                <div
+                  key={c.id}
+                  className={`check-item ${checks[c.id] ? "checked" : ""}`}
+                  onClick={() => toggleCheck(c.id)}
+                >
+                  <div className="check-box">{checks[c.id] ? "✓" : ""}</div>
+                  <span className="check-label">{c.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Issue */}
           <div className="field">
             <div className="field-header">
-              <label className="label">Screenshots</label>
-              <span className="char-count">{screenshots.length} / {MAX_SCREENSHOTS}</span>
+              <label className={`label ${fieldErrors.issue ? "error" : ""}`}>Describe the Issue</label>
+              {issue.length > 0 && <span className={`char-count ${isOverLimit(issue) ? "over" : ""}`}>{issue.length} / {MAX_LENGTH}</span>}
             </div>
-            <div className="upload-zone">
-              {screenshots.length > 0 && (
-                <div className="screenshots-grid">
-                  {screenshots.map((s, i) => (
-                    <div key={i}>
-                      <div className="screenshot-thumb">
-                        <img src={s.url} alt={s.name} />
-                        <button className="screenshot-remove" onClick={() => removeScreenshot(i)}>×</button>
-                      </div>
-                      <div className="screenshot-name">{s.name}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: "none" }}
-                onChange={handleScreenshots}
-              />
-              <button
-                className="upload-btn"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={screenshots.length >= MAX_SCREENSHOTS}
-              >
-                + Add screenshots
-              </button>
-              {screenshots.length === 0 && (
-                <div className="upload-hint">Optional · up to 5 images</div>
-              )}
+            <textarea
+              className={`textarea ${fieldErrors.issue ? "error" : ""}`}
+              placeholder="What is broken? Be specific — what happens, when, for who."
+              value={issue}
+              rows={5}
+              onChange={e => { setIssue(e.target.value); setFieldErrors(f => ({ ...f, issue: false })); }}
+            />
+          </div>
+
+          {/* Expected Result */}
+          <div className="field">
+            <div className="field-header">
+              <label className={`label ${fieldErrors.expectedResult ? "error" : ""}`}>Expected Result</label>
+              {expectedResult.length > 0 && <span className={`char-count ${isOverLimit(expectedResult) ? "over" : ""}`}>{expectedResult.length} / {MAX_LENGTH}</span>}
             </div>
+            <textarea
+              className={`textarea ${fieldErrors.expectedResult ? "error" : ""}`}
+              placeholder="What should happen instead?"
+              value={expectedResult}
+              rows={3}
+              onChange={e => { setExpectedResult(e.target.value); setFieldErrors(f => ({ ...f, expectedResult: false })); }}
+            />
           </div>
 
           {error && <div className="error-msg">{error}</div>}
@@ -595,7 +545,7 @@ ${context}${screenshotLine}
           <button
             className="btn-validate"
             onClick={validate}
-            disabled={loading || isOverLimit(currentBehavior) || isOverLimit(expectedBehavior) || isOverLimit(context)}
+            disabled={loading || isOverLimit(issue) || isOverLimit(expectedResult)}
           >
             {loading ? "Validating..." : "Validate Ticket"}
           </button>
@@ -626,19 +576,14 @@ ${context}${screenshotLine}
                     {result.score}
                   </div>
                   <div className="score-info">
-                    <div className="score-label" style={{ color: scoreColor(result.score) }}>
-                      {scoreLabel(result.score)}
-                    </div>
+                    <div className="score-label" style={{ color: scoreColor(result.score) }}>{scoreLabel(result.score)}</div>
                     <div className="score-summary">{result.summary}</div>
                   </div>
                 </div>
 
                 <div className="score-bar-wrap">
                   <div className="score-bar-bg">
-                    <div className="score-bar-fill" style={{
-                      width: `${animatedScore}%`,
-                      background: scoreColor(result.score),
-                    }} />
+                    <div className="score-bar-fill" style={{ width: `${animatedScore}%`, background: scoreColor(result.score) }} />
                   </div>
                 </div>
 
@@ -667,7 +612,6 @@ ${context}${screenshotLine}
                 )}
               </div>
 
-              {/* Formatted output block - always shown after validation */}
               <div className="output-block">
                 <div className="output-header">
                   <span className="output-title">Formatted ticket</span>
@@ -675,29 +619,22 @@ ${context}${screenshotLine}
                     {copied ? "Copied ✓" : "Copy"}
                   </button>
                 </div>
-                <div className="output-text">{`────────────────────────────────────
+                <div className="output-text">{(() => {
+                  const checkedItems = QUICK_CHECKS.filter(c => checks[c.id]).map(c => `  ✓ ${c.label}`);
+                  return `────────────────────────────────────
 SAP CONCUR SUPPORT TICKET
 ────────────────────────────────────
 Module: ${concurModule}
+Environment: ${environment}
+Urgency: ${urgency}
+${checkedItems.length > 0 ? `\nChecks:\n${checkedItems.join("\n")}\n` : ""}
+Issue:
+${issue}
 
-Current Behavior:
-${currentBehavior}
-
-Expected Behavior:
-${expectedBehavior}
-
-Context:
-${context}${screenshots.length > 0 ? `\n\nAttached screenshots (${screenshots.length}):\n${screenshots.map((s, i) => `  ${i + 1}. ${s.name}`).join("\n")}` : ""}
-────────────────────────────────────`}</div>
-                {screenshots.length > 0 && (
-                  <div className="output-screenshots">
-                    {screenshots.map((s, i) => (
-                      <div className="output-thumb" key={i}>
-                        <img src={s.url} alt={s.name} />
-                      </div>
-                    ))}
-                  </div>
-                )}
+Expected Result:
+${expectedResult}
+────────────────────────────────────`;
+                })()}</div>
               </div>
             </>
           )}
