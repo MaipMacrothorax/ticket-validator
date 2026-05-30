@@ -12,6 +12,7 @@ const QUICK_CHECKS = [
 ];
 
 export default function Home() {
+  const [partnerName, setPartnerName] = useState("");
   const [concurModule, setConcurModule] = useState("");
   const [environment, setEnvironment] = useState("");
   const [checks, setChecks] = useState({});
@@ -46,6 +47,7 @@ export default function Home() {
 
   const validate = () => {
     const errors = {};
+    if (!partnerName.trim()) errors.partnerName = true;
     if (!concurModule) errors.concurModule = true;
     if (!environment) errors.environment = true;
     if (!urgency) errors.urgency = true;
@@ -69,6 +71,7 @@ export default function Home() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        partnerName,
         concurModule,
         environment,
         urgency,
@@ -94,6 +97,7 @@ export default function Home() {
     const output = `────────────────────────────────────
 SAP CONCUR SUPPORT TICKET
 ────────────────────────────────────
+Partner: ${partnerName}
 Module: ${concurModule}
 Environment: ${environment}
 Urgency: ${urgency}
@@ -110,7 +114,7 @@ ${expectedResult}
   };
 
   const scoreColor = (s) => s >= 80 ? "#00c896" : s >= 50 ? "#f5a623" : "#e84040";
-  const scoreLabel = (s) => s >= 80 ? "Ready to submit" : s >= 50 ? "Needs improvement" : "Incomplete";
+  const scoreLabel = (s) => s >= 60 ? "Ready to submit" : s >= 40 ? "Needs improvement" : "Incomplete";
   const isOverLimit = (val) => val.length > MAX_LENGTH;
 
   return (
@@ -446,7 +450,20 @@ ${expectedResult}
       <div className="main">
         <div className="form-col">
 
-          {/* Module */}
+          {/* Partner */}
+          <div className="field">
+            <label className={`label ${fieldErrors.partnerName ? "error" : ""}`}>Partner Company</label>
+            <input
+              type="text"
+              className={`select ${fieldErrors.partnerName ? "error" : ""}`}
+              placeholder="Your company name"
+              value={partnerName}
+              onChange={e => { setPartnerName(e.target.value); setFieldErrors(f => ({ ...f, partnerName: false })); }}
+              style={{paddingRight: '14px'}}
+            />
+          </div>
+
+                    {/* Module */}
           <div className="field">
             <label className={`label ${fieldErrors.concurModule ? "error" : ""}`}>Module</label>
             <div className="select-wrap">
@@ -624,6 +641,7 @@ ${expectedResult}
                   return `────────────────────────────────────
 SAP CONCUR SUPPORT TICKET
 ────────────────────────────────────
+Partner: ${partnerName}
 Module: ${concurModule}
 Environment: ${environment}
 Urgency: ${urgency}

@@ -1,12 +1,15 @@
 const SYSTEM_PROMPT = `You are a SAP Concur implementation support ticket reviewer.
 Evaluate whether a partner support ticket has enough context for an implementation consultant to start working on it.
 
-Score generously. A ticket that clearly describes the problem and the goal deserves 80+.
-Do NOT penalize for missing highly technical details unless clearly essential.
-DO penalize for: vague descriptions, unclear goal, no explanation of what is broken.
+Scoring rules:
+- A ticket that clearly describes the problem and the expected result deserves 60+
+- If the partner confirmed "Already tested in sandbox" or "Issue reproducible consistently", add 10 points
+- If both are confirmed, add 15 points total
+- Do NOT penalize for missing technical details unless essential to diagnose the issue
+- DO penalize for: vague descriptions with no specifics, missing expected result, unclear what is broken
 
-A score of 80+ means: a consultant can start working without sending a follow-up email.
-A score below 50 means: the ticket is too vague to act on.
+A score of 60+ means: ready to submit.
+A score below 40 means: too vague to act on.
 
 Respond ONLY with a JSON object, no markdown:
 {
@@ -55,7 +58,7 @@ export async function POST(request) {
   try { body = await request.json(); }
   catch { return Response.json({ error: "Invalid request body" }, { status: 400 }); }
 
-  const { concurModule, environment, urgency, checks, issue, expectedResult } = body;
+  const { partnerName, concurModule, environment, urgency, checks, issue, expectedResult } = body;
 
   if (!concurModule || !environment || !urgency || !issue || !expectedResult) {
     return Response.json({ error: "Missing fields" }, { status: 400 });
@@ -65,9 +68,10 @@ export async function POST(request) {
     return Response.json({ error: `Fields must be under ${MAX_FIELD_LENGTH} characters.` }, { status: 400 });
   }
 
-  const checksText = checks?.length > 0 ? `\nCHECKS CONFIRMED: ${checks.join(", ")}` : "";
+  const checksText = checks?.length > 0 ? `\nCHECKS CONFIRMED BY PARTNER: ${checks.join(", ")}` : "";
 
-  const ticketText = `MODULE: ${concurModule}
+  const ticketText = `PARTNER: ${partnerName || "Not specified"}
+MODULE: ${concurModule}
 ENVIRONMENT: ${environment}
 URGENCY: ${urgency}${checksText}
 ISSUE: ${issue}
