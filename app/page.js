@@ -305,6 +305,15 @@ ${expectedResult}
         .btn-validate:hover:not(:disabled) { background: #0060d0; }
         .btn-validate:active:not(:disabled) { transform: scale(0.99); }
         .btn-validate:disabled { background: #111128; color: #333355; cursor: not-allowed; }
+        .disclaimer {
+          font-size: 10px;
+          letter-spacing: 0.5px;
+          color: #333355;
+          text-align: center;
+          padding: 8px 0 4px;
+          border-top: 1px solid #1e1e2e;
+        }
+
 
         .error-msg {
           font-size: 11px;
@@ -558,6 +567,8 @@ ${expectedResult}
           </div>
 
           {error && <div className="error-msg">{error}</div>}
+
+          <div className="disclaimer">Do not include client names, personal data, or confidential information.</div>
 
           <button
             className="btn-validate"
