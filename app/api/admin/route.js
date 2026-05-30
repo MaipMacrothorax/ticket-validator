@@ -8,10 +8,12 @@ export async function GET(request) {
 
   const sql = neon(process.env.DATABASE_URL);
 
-  const [rows, stats, weekCount] = await Promise.all([
+  const [rows, stats, weekCount, trend, moduleStats] = await Promise.all([
     sql`SELECT * FROM validations ORDER BY created_at DESC LIMIT 50`,
-    sql`SELECT COUNT(*) as total, ROUND(AVG(score)) as avg_score, ROUND(100.0 * SUM(CASE WHEN ready THEN 1 ELSE 0 END) / COUNT(*)) as ready_pct FROM validations`,
+    sql`SELECT COUNT(*) as total, ROUND(AVG(score)) as avg_score, ROUND(100.0 * SUM(CASE WHEN ready THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0)) as ready_pct FROM validations`,
     sql`SELECT COUNT(*) as count FROM validations WHERE created_at > NOW() - INTERVAL '7 days'`,
+    sql`SELECT DATE_TRUNC('day', created_at) as day, ROUND(AVG(score)) as avg_score, COUNT(*) as count FROM validations GROUP BY day ORDER BY day ASC`,
+    sql`SELECT module, ROUND(AVG(score)) as avg_score, COUNT(*) as count FROM validations GROUP BY module ORDER BY avg_score ASC`,
   ]);
 
   return Response.json({
@@ -20,5 +22,15 @@ export async function GET(request) {
     avgScore: Number(stats[0].avg_score) || 0,
     readyPct: Number(stats[0].ready_pct) || 0,
     thisWeek: Number(weekCount[0].count),
+    trend: trend.map(t => ({
+      day: t.day,
+      avgScore: Number(t.avg_score),
+      count: Number(t.count),
+    })),
+    moduleStats: moduleStats.map(m => ({
+      module: m.module,
+      avgScore: Number(m.avg_score),
+      count: Number(m.count),
+    })),
   });
 }
