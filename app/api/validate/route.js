@@ -1,3 +1,5 @@
+import { neon } from "@neondatabase/serverless";
+
 const SYSTEM_PROMPT = `You are a SAP Concur implementation support ticket reviewer.
 Evaluate whether a partner support ticket has enough context for an implementation consultant to start working on it.
 
@@ -102,6 +104,28 @@ EXPECTED RESULT: ${expectedResult}`;
     const text = data.content?.find(b => b.type === "text")?.text || "";
     const clean = text.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(clean);
+
+    // Log to database (non-blocking)
+    if (process.env.DATABASE_URL) {
+      try {
+        const sql = neon(process.env.DATABASE_URL);
+        await sql`
+          INSERT INTO validations (partner_name, module, environment, urgency, checks, score, ready)
+          VALUES (
+            ${partnerName || "Unknown"},
+            ${concurModule},
+            ${environment},
+            ${urgency},
+            ${checks || []},
+            ${parsed.score},
+            ${parsed.ready}
+          )
+        `;
+      } catch (dbErr) {
+        console.error("DB log failed:", dbErr.message);
+      }
+    }
+
     return Response.json(parsed);
   } catch (err) {
     return Response.json({ error: "Validation failed", detail: err.message }, { status: 500 });
