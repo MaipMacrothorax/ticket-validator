@@ -1,14 +1,14 @@
-# SAP Concur Ticket Validator
+# Partner Ticket Validator
 
-AI-powered pre-submission validator for SAP Concur partner support tickets. Partners fill a structured form, get an AI completeness score, and copy a formatted ticket directly to Salesforce — reducing back-and-forth with implementation consultants.
+AI-powered pre-submission validator for partner support tickets. Partners fill a structured form, get an AI completeness score, and copy a formatted ticket directly to their ticketing system — reducing back-and-forth with implementation consultants.
 
 ## The problem
 
-Partner tickets submitted to SAP Concur implementation teams often lack critical context: wrong environment, vague issue descriptions, no expected outcome. This creates unnecessary round trips that delay resolution.
+Partner tickets submitted to implementation teams often lack critical context: wrong environment, vague issue descriptions, no expected outcome. This creates unnecessary round trips that delay resolution.
 
 ## The solution
 
-A lightweight web app partners use before opening a ticket on Salesforce. The AI scores completeness (0–100) and tells the partner exactly what's missing before they submit.
+A lightweight web app partners use before opening a ticket. The AI scores completeness (0–100) and tells the partner exactly what's missing before they submit.
 
 ## Features
 
@@ -17,7 +17,7 @@ A lightweight web app partners use before opening a ticket on Salesforce. The AI
 - Urgency selector (Low / Medium / High)
 - Quick checks (tested in sandbox, reproducible, after config change, users notified)
 - AI completeness score with specific feedback
-- Formatted ticket output ready to copy into Salesforce
+- Formatted ticket output ready to copy
 - Admin dashboard with score trend over time and module breakdown
 - Logging to Neon (Postgres) database
 - Rate limiting (10 requests/hour per IP)
