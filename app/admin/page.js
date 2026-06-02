@@ -95,7 +95,7 @@ export default function Home() {
   const handleCopy = () => {
     const checkedItems = QUICK_CHECKS.filter(c => checks[c.id]).map(c => `  ✓ ${c.label}`);
     const output = `────────────────────────────────────
-SAP CONCUR SUPPORT TICKET
+PARTNER SUPPORT TICKET
 ────────────────────────────────────
 Partner: ${partnerName}
 Module: ${concurModule}
@@ -140,7 +140,7 @@ ${expectedResult}
           color: #fff;
         }
         .header-sub { font-size: 11px; color: #444466; letter-spacing: 2px; text-transform: uppercase; }
-        .sap-badge {
+        .partner-badge {
           margin-left: auto;
           font-size: 10px;
           letter-spacing: 2px;
@@ -453,7 +453,7 @@ ${expectedResult}
       <div className="header">
         <div className="header-title">Ticket Validator</div>
         <div className="header-sub">Partner Pre-Submission</div>
-        <div className="sap-badge">SAP Concur</div>
+        <div className="partner-badge">Partner Support</div>
       </div>
 
       <div className="main">
@@ -650,7 +650,7 @@ ${expectedResult}
                 <div className="output-text">{(() => {
                   const checkedItems = QUICK_CHECKS.filter(c => checks[c.id]).map(c => `  ✓ ${c.label}`);
                   return `────────────────────────────────────
-SAP CONCUR SUPPORT TICKET
+PARTNER SUPPORT TICKET
 ────────────────────────────────────
 Partner: ${partnerName}
 Module: ${concurModule}
