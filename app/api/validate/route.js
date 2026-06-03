@@ -62,6 +62,17 @@ export async function POST(request) {
 
   const { partnerName, concurModule, environment, urgency, checks, issue, expectedResult } = body;
 
+  // Validate checks array
+  const VALID_CHECKS = [
+    "Already tested in sandbox",
+    "Issue reproducible consistently",
+    "Users have been notified",
+    "Occurred after a configuration change"
+  ];
+  const safeChecks = Array.isArray(checks)
+    ? checks.filter(c => VALID_CHECKS.includes(c)).slice(0, 4)
+    : [];
+
   if (!concurModule || !environment || !urgency || !issue || !expectedResult) {
     return Response.json({ error: "Missing fields" }, { status: 400 });
   }
@@ -70,7 +81,7 @@ export async function POST(request) {
     return Response.json({ error: `Fields must be under ${MAX_FIELD_LENGTH} characters.` }, { status: 400 });
   }
 
-  const checksText = checks?.length > 0 ? `\nCHECKS CONFIRMED BY PARTNER: ${checks.join(", ")}` : "";
+  const checksText = safeChecks.length > 0 ? `\nCHECKS CONFIRMED BY PARTNER: ${safeChecks.join(", ")}` : "";
 
   const ticketText = `PARTNER: ${partnerName || "Not specified"}
 MODULE: ${concurModule}
@@ -96,8 +107,8 @@ EXPECTED RESULT: ${expectedResult}`;
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      return Response.json({ error: "Anthropic API error", detail: err }, { status: 500 });
+      await response.text(); // consume response body
+      return Response.json({ error: "Validation service unavailable. Please try again." }, { status: 500 });
     }
 
     const data = await response.json();
@@ -116,7 +127,7 @@ EXPECTED RESULT: ${expectedResult}`;
             ${concurModule},
             ${environment},
             ${urgency},
-            ${checks || []},
+            ${safeChecks},
             ${parsed.score},
             ${parsed.ready}
           )
@@ -128,6 +139,6 @@ EXPECTED RESULT: ${expectedResult}`;
 
     return Response.json(parsed);
   } catch (err) {
-    return Response.json({ error: "Validation failed", detail: err.message }, { status: 500 });
+    return Response.json({ error: "Validation failed. Please try again." }, { status: 500 });
   }
 }
